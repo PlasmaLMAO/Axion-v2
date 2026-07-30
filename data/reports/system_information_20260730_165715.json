@@ -1,0 +1,24 @@
+{
+    "title": "System Information",
+    "generated_at": "2026-07-30T16:57:15.819620",
+    "data": {
+        "System": "Linux",
+        "Node Name": "DESKTOP-2LLI57F",
+        "Release": "6.18.33.2-microsoft-standard-WSL2",
+        "Version": "#1 SMP PREEMPT_DYNAMIC Thu Jun 18 21:54:43 UTC 2026",
+        "Machine": "x86_64",
+        "Python Version": "3.14.6",
+        "Uptime": "0:51:17",
+        "CPU Physical Cores": "6",
+        "CPU Logical Cores": "12",
+        "CPU Current Usage": "0.0%",
+        "Memory Total": "15.53 GB",
+        "Memory Used": "0.61 GB",
+        "Memory Available": "14.91 GB",
+        "Memory Usage": "4.0%",
+        "Disk Total": "1006.85 GB",
+        "Disk Used": "1.72 GB",
+        "Disk Free": "953.91 GB",
+        "Disk Usage": "0.2%"
+    }
+}

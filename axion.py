@@ -53,6 +53,7 @@ class AxionApp:
         console.input("\nPress Enter to continue.")
 
     def _offer_report(self, title: str, data) -> None:
+        """Ask whether to save results as a report, and do so if confirmed."""
         if not data:
             return
         save = console.input("\n  Save this as a report? [y/N]: ").strip().lower()
@@ -100,7 +101,16 @@ class AxionApp:
                 return
             elif choice == "1":
                 self.logger.debug("Ran System Information.")
-                SystemInfo().display()
+                info = SystemInfo()
+                info.display()
+                report_data = {
+                    **info.get_os_info(),
+                    "Uptime": info.get_uptime(),
+                    **{f"CPU {k}": v for k, v in info.get_cpu_info().items()},
+                    **{f"Memory {k}": v for k, v in info.get_memory_info().items()},
+                    **{f"Disk {k}": v for k, v in info.get_disk_info().items()},
+                }
+                self._offer_report("System Information", report_data)
                 self._pause()
             elif choice == "2":
                 self.logger.debug("Ran Process Viewer.")
@@ -125,17 +135,30 @@ class AxionApp:
                 return
             elif choice == "1":
                 self.logger.debug("Ran Network Scanner.")
-                NetworkScanner().display()
+                scanner = NetworkScanner()
+                scanner.display()
+                report_data = {
+                    "Hostname": scanner.get_hostname(),
+                    "Primary IP": scanner.get_local_ip(),
+                    "Interfaces": scanner.get_interfaces(),
+                }
+                self._offer_report("Network Interfaces", report_data)
                 self._pause()
             elif choice == "2":
                 domain = console.input("  Enter a domain (e.g. example.com): ").strip()
                 if domain:
                     self.logger.debug(f"Ran DNS Analyzer on {domain}.")
-                    DNSAnalyzer().display(domain)
+                    dns_tool = DNSAnalyzer()
+                    dns_tool.display(domain)
+                    report_data = dns_tool.analyze(domain)
+                    self._offer_report(f"DNS Analysis - {domain}", report_data)
                 self._pause()
             elif choice == "3":
                 self.logger.debug("Ran Connection Monitor.")
-                ConnectionMonitor().display()
+                monitor = ConnectionMonitor()
+                monitor.display()
+                report_data = monitor.get_connections()
+                self._offer_report("Active Connections", report_data)
                 self._pause()
             elif choice == "4":
                 target = console.input(
@@ -235,7 +258,11 @@ class AxionApp:
                     "  Enter an IP (blank for your own public IP): "
                 ).strip()
                 self.logger.debug(f"Ran IP Lookup on '{ip or 'self'}'.")
-                IPLookup().display(ip)
+                ip_tool = IPLookup()
+                data = ip_tool.lookup(ip)
+                if data:
+                    ip_tool.display(ip)
+                    self._offer_report(f"IP Lookup - {ip or 'self'}", data)
                 self._pause()
             elif choice == "2":
                 self._cve_submenu()
