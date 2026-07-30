@@ -12,6 +12,7 @@ from core.banner import Banner
 from core.config import Config
 from core.logger import AxionLogger
 from core.database import Database
+from core.report_generator import ReportGenerator
 
 from modules.system.info import SystemInfo
 from modules.system.processes import ProcessViewer
@@ -35,6 +36,7 @@ class AxionApp:
         self.banner = Banner()
         self.config = Config()
         self.logger = AxionLogger.get_logger()
+        self.reports = ReportGenerator()
 
     def run(self) -> None:
         self.logger.info("AXION V2 session started.")
@@ -49,6 +51,16 @@ class AxionApp:
 
     def _pause(self) -> None:
         console.input("\nPress Enter to continue.")
+
+    def _offer_report(self, title: str, data) -> None:
+        if not data:
+            return
+        save = console.input("\n  Save this as a report? [y/N]: ").strip().lower()
+        if save == "y":
+            json_path, html_path = self.reports.save_both(title, data)
+            console.print(f"\n  [dim]Saved:[/dim] {json_path.name}")
+            console.print(f"  [dim]Saved:[/dim] {html_path.name}")
+            self.logger.info(f"Report saved: {title}")
 
 
     def _main_menu(self) -> None:
@@ -97,7 +109,6 @@ class AxionApp:
             else:
                 console.print("\n[bold red]Invalid option.[/bold red]")
                 self._pause()
-
 
     def _network_menu(self) -> None:
         while True:
@@ -156,7 +167,11 @@ class AxionApp:
                 filepath = console.input("  Enter a file path to hash: ").strip()
                 if filepath:
                     self.logger.debug("Ran Hash Analyzer.")
-                    HashAnalyzer().display(filepath)
+                    analyzer = HashAnalyzer()
+                    result = analyzer.analyze(filepath)
+                    if result:
+                        analyzer.display(filepath)
+                        self._offer_report(f"Hash Analysis - {filepath}", result)
                 self._pause()
             elif choice == "2":
                 password = getpass.getpass("  Enter a password to audit (input hidden): ")
@@ -170,7 +185,16 @@ class AxionApp:
                 filepath = console.input("  Enter a log file path: ").strip()
                 if filepath:
                     self.logger.debug("Ran Log Analyzer.")
-                    LogAnalyzer().display(filepath)
+                    analyzer = LogAnalyzer()
+                    result = analyzer.analyze(filepath)
+                    if result:
+                        analyzer.display(filepath)
+                        report_data = {
+                            "total_lines": result["total_lines"],
+                            "repeated_failures": result["repeated_failures"],
+                            "keyword_match_count": len(result["keyword_matches"]),
+                        }
+                        self._offer_report(f"Log Analysis - {filepath}", report_data)
                 self._pause()
             else:
                 console.print("\n[bold red]Invalid option.[/bold red]")
@@ -193,6 +217,7 @@ class AxionApp:
         else:
             console.print("\n[bold red]Invalid option.[/bold red]")
         self._pause()
+
 
     def _intelligence_menu(self) -> None:
         while True:
@@ -225,12 +250,20 @@ class AxionApp:
             cve_id = console.input("  Enter CVE ID (e.g. CVE-2021-44228): ").strip()
             if cve_id:
                 self.logger.debug(f"Looked up CVE {cve_id}.")
-                lookup.display_by_id(cve_id)
+                cve = lookup.lookup_by_id(cve_id)
+                if cve:
+                    lookup.display_by_id(cve_id)
+                    summary = lookup._extract_summary(cve)
+                    self._offer_report(f"CVE Lookup - {cve_id}", summary)
         elif mode == "k":
             keyword = console.input("  Enter a keyword (e.g. openssl): ").strip()
             if keyword:
                 self.logger.debug(f"Searched CVEs for keyword '{keyword}'.")
-                lookup.display_by_keyword(keyword)
+                results = lookup.search_by_keyword(keyword)
+                if results:
+                    lookup.display_by_keyword(keyword)
+                    summaries = [lookup._extract_summary(c) for c in results]
+                    self._offer_report(f"CVE Search - {keyword}", summaries)
         else:
             console.print("\n[bold red]Invalid option.[/bold red]")
         self._pause()

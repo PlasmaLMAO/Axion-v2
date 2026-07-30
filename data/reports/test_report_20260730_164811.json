@@ -1,0 +1,9 @@
+{
+    "title": "Test Report",
+    "generated_at": "2026-07-30T16:48:11.081163",
+    "data": {
+        "Hostname": "test-host",
+        "OS": "Linux",
+        "Uptime": "1:23:45"
+    }
+}
