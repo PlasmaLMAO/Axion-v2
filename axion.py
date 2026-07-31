@@ -1,4 +1,3 @@
-
 import getpass
 import sys
 from pathlib import Path
@@ -15,6 +14,7 @@ from core.logger import AxionLogger
 from core.database import Database
 from core.report_generator import ReportGenerator
 from core.cli import CLI
+from core.webhook import WebhookNotifier
 from core.theme import THEME
 
 from modules.system.info import SystemInfo
@@ -40,6 +40,7 @@ class AxionApp:
         self.config = Config()
         self.logger = AxionLogger.get_logger()
         self.reports = ReportGenerator()
+        self.webhook = WebhookNotifier()
         self.cli = CLI(prompt="axion> ")
         self._register_commands()
 
@@ -122,7 +123,17 @@ class AxionApp:
 
     def _cmd_verify(self, name: str) -> None:
         self.logger.debug(f"Verified integrity baseline '{name}'.")
-        IntegrityMonitor().compare_baseline(name)
+        monitor = IntegrityMonitor()
+        changes = monitor.compare_baseline(name)
+        if changes and self.webhook.is_configured():
+            modified, deleted = changes
+            if modified or deleted:
+                self.webhook.send(
+                    title="File Integrity Change Detected",
+                    description=f"Baseline '{name}' verification found changes.",
+                    severity="error",
+                    fields={"Modified": len(modified), "Deleted": len(deleted)},
+                )
 
     def _cmd_logscan(self, filepath: str) -> None:
         self.logger.debug("Ran Log Analyzer.")
@@ -135,6 +146,18 @@ class AxionApp:
                 "repeated_failures": result["repeated_failures"],
                 "keyword_match_count": len(result["keyword_matches"]),
             }
+            if result["repeated_failures"] and self.webhook.is_configured():
+                top_ip = max(result["repeated_failures"], key=result["repeated_failures"].get)
+                self.webhook.send(
+                    title="Brute Force Pattern Detected",
+                    description=f"Log analysis of `{filepath}` found repeated failed logins.",
+                    severity="warning",
+                    fields={
+                        "Top Source IP": top_ip,
+                        "Attempts": result["repeated_failures"][top_ip],
+                        "Flagged IPs": len(result["repeated_failures"]),
+                    },
+                )
             self._offer_report(f"Log Analysis - {filepath}", report_data)
 
 
@@ -165,6 +188,25 @@ class AxionApp:
             self._offer_report(f"CVE Search - {keyword}", summaries)
 
 
+    def _cmd_config_webhook(self, url: str) -> None:
+        self.webhook.set_url(url)
+        console.print(f"[{THEME['success']}]Webhook URL saved.[/{THEME['success']}]")
+
+    def _cmd_config_test(self) -> None:
+        if not self.webhook.is_configured():
+            console.print(f"[{THEME['error']}]No webhook configured. Use: config-webhook <url>[/{THEME['error']}]")
+            return
+        success = self.webhook.send(
+            title="AXION V2 Test Alert",
+            description="This is a test notification from AXION V2.",
+            severity="info",
+        )
+        if success:
+            console.print(f"[{THEME['success']}]Test alert sent.[/{THEME['success']}]")
+        else:
+            console.print(f"[{THEME['error']}]Failed to send test alert.[/{THEME['error']}]")
+
+
     def _register_commands(self) -> None:
         r = self.cli.register
 
@@ -185,6 +227,9 @@ class AxionApp:
         r("ip", self._cmd_ip, "Look up IP geolocation/ASN. Usage: ip [address] (blank = your own)", "Intelligence")
         r("cve", self._cmd_cve_id, "Look up a CVE by ID. Usage: cve <CVE-YYYY-NNNNN>", "Intelligence")
         r("cve-search", self._cmd_cve_search, "Search CVEs by keyword. Usage: cve-search <keyword>", "Intelligence")
+
+        r("config-webhook", self._cmd_config_webhook, "Set your Discord webhook URL. Usage: config-webhook <url>", "Config")
+        r("config-test", self._cmd_config_test, "Send a test alert to your configured webhook.", "Config")
 
     def run(self) -> None:
         self.logger.info("AXION V2 session started.")

@@ -4,6 +4,7 @@ from pathlib import Path as _Path
 _PROJECT_ROOT = _Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
+
 import hashlib
 from datetime import datetime
 from pathlib import Path
@@ -19,17 +20,18 @@ CHUNK_SIZE = 65536
 
 TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS integrity_baseline (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            baseline_name TEXT NOT NULL,
-            filepath TEXT NOT NULL,
-            sha256 TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(baseline_name, filepath)
-            )
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        baseline_name TEXT NOT NULL,
+        filepath TEXT NOT NULL,
+        sha256 TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(baseline_name, filepath)
+    )
 """
 
 
 class IntegrityMonitor:
+
     def __init__(self) -> None:
         with Database() as db:
             db.execute(TABLE_SCHEMA)
@@ -54,33 +56,33 @@ class IntegrityMonitor:
 
         with Database() as db:
             db.execute(
-                    "DELETE FROM integrity_baseline WHERE baseline_name = ?",
-                    (baseline_name,),
-                    )
+                "DELETE FROM integrity_baseline WHERE baseline_name = ?",
+                (baseline_name,),
+            )
             for filepath in files:
                 file_hash = self._hash_file(filepath)
                 db.execute(
-                        """INSERT INTO integrity_baseline
-                        (baseline_name, filepath, sha256) VALUES (?, ?, ?)""",
-                        (baseline_name, str(filepath), file_hash),
-                        )
+                    """INSERT INTO integrity_baseline
+                       (baseline_name, filepath, sha256) VALUES (?, ?, ?)""",
+                    (baseline_name, str(filepath), file_hash),
+                )
 
         console.print(
-                f"\n[bold #e6e6e6]Baseline '{baseline_name}' created:[/bold #e6e6e6] "
-                f"{len(files)} file(s) recorded.\n"
-                )
+            f"\n[bold #e6e6e6]Baseline '{baseline_name}' created:[/bold #e6e6e6] "
+            f"{len(files)} file(s) recorded.\n"
+        )
         return len(files)
 
-    def compare_baseline(self, baseline_name: str) -> None:
+    def compare_baseline(self, baseline_name: str) -> tuple[list[str], list[str]] | None:
         with Database() as db:
             rows = db.fetch_all(
-                    "SELECT filepath, sha256 FROM integrity_baseline WHERE baseline_name = ?",
-                    (baseline_name,),
-                    )
+                "SELECT filepath, sha256 FROM integrity_baseline WHERE baseline_name = ?",
+                (baseline_name,),
+            )
 
         if not rows:
             console.print(f"\n[bold red]No baseline found named '{baseline_name}'.[/bold red]\n")
-            return
+            return None
 
         modified = []
         deleted = []
@@ -113,13 +115,16 @@ class IntegrityMonitor:
             console.print("\n[dim]No changes detected.[/dim]")
 
         console.print(
-                f"\n  Unchanged: {unchanged_count}  |  Modified: {len(modified)}  |  "
-                f"Deleted: {len(deleted)}\n"
-                )
+            f"\n  Unchanged: {unchanged_count}  |  Modified: {len(modified)}  |  "
+            f"Deleted: {len(deleted)}\n"
+        )
+
+        return modified, deleted
 
 
 if __name__ == "__main__":
     action = console.input("  \\[c]reate baseline or \\[v]erify against one? ").strip().lower()
+
     if action == "c":
         directory = console.input("  Directory to baseline: ").strip()
         name = console.input("  Baseline name: ").strip()
