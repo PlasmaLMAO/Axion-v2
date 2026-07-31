@@ -29,6 +29,7 @@ from modules.security.integrity import IntegrityMonitor
 from modules.security.logs import LogAnalyzer
 from modules.intelligence.ip_lookup import IPLookup
 from modules.intelligence.cve import CVELookup
+from modules.system.dashboard import Dashboard
 
 console = Console()
 
@@ -72,6 +73,9 @@ class AxionApp:
         self.logger.debug("Ran Process Viewer.")
         ProcessViewer().display()
 
+    def _cmd_dashboard(self) -> None:
+        self.logger.debug("Launched live dashboard.")
+        Dashboard().run()
 
     def _cmd_netinfo(self) -> None:
         self.logger.debug("Ran Network Scanner.")
@@ -212,6 +216,7 @@ class AxionApp:
 
         r("sysinfo", self._cmd_sysinfo, "Show OS, CPU, RAM, disk, and GPU info.", "System")
         r("processes", self._cmd_processes, "List running processes by resource usage.", "System")
+        r("dashboard", self._cmd_dashboard, "Launch a live-updating system dashboard (Ctrl+C to exit).", "System")
 
         r("netinfo", self._cmd_netinfo, "Show local network interfaces and IP.", "Network")
         r("dns", self._cmd_dns, "Look up DNS records. Usage: dns <domain>", "Network")
