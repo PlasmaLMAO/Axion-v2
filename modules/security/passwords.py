@@ -1,10 +1,19 @@
+import sys
+from pathlib import Path as _Path
+
+_PROJECT_ROOT = _Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 import math
 import re
 
-from rich.console import Console
-from rich.table import Table
+from rich.console import Console, Group
+
+from core.theme import THEME, boxless_table, print_centered
 
 console = Console()
+
 COMMON_PASSWORDS = {
     "password", "123456", "12345678", "qwerty", "abc123", "password1",
     "111111", "letmein", "admin", "welcome", "monkey", "iloveyou",
@@ -23,7 +32,7 @@ class PasswordAuditor:
         if re.search(r"[0-9]", password):
             pool_size += 10
         if re.search(r"[^a-zA-Z0-9]", password):
-            pool_size += 32  # approximate size of common symbol set
+            pool_size += 32
 
         if pool_size == 0 or len(password) == 0:
             return 0.0
@@ -68,30 +77,39 @@ class PasswordAuditor:
             return "Strong" if warning_count <= 1 else "Moderate"
         return "Very Strong" if warning_count == 0 else "Strong"
 
+    def _rating_color(self, rating: str) -> str:
+        if "Very Weak" in rating or rating == "Weak":
+            return THEME["error"]
+        if rating == "Moderate":
+            return THEME["warning"]
+        return THEME["success"]
+
     def display(self, password: str) -> None:
-        """Analyze a password and print results. Never logs the password itself."""
         entropy = self.calculate_entropy(password)
         is_common = self.check_common_password(password)
         warnings = self.check_patterns(password)
         rating = self.rate_strength(entropy, is_common, len(warnings))
+        rating_color = self._rating_color(rating)
 
-        table = Table(title="Password Strength Analysis", title_style="bold #e6e6e6")
-        table.add_column("Field", style="#999999")
-        table.add_column("Value", style="#e6e6e6")
+        table = boxless_table("Password Strength Analysis")
+        table.add_column("Field", style=THEME["muted"])
+        table.add_column("Value", style=THEME["primary"])
 
         table.add_row("Length", str(len(password)))
         table.add_row("Estimated Entropy", f"{entropy:.1f} bits")
         table.add_row("Common Password", "Yes" if is_common else "No")
-        table.add_row("Rating", rating)
+        table.add_row("Rating", f"[bold {rating_color}]{rating}[/bold {rating_color}]")
 
-        console.print(table)
+        renderables = [table, ""]
 
         if warnings:
-            console.print("\n[bold #e6e6e6]Warnings:[/bold #e6e6e6]")
+            renderables.append(f"[bold {THEME['primary']}]Warnings:[/bold {THEME['primary']}]")
             for warning in warnings:
-                console.print(f"  - [#999999]{warning}[/#999999]")
+                renderables.append(f"  - [{THEME['muted']}]{warning}[/{THEME['muted']}]")
         else:
-            console.print("\n[dim]No pattern-based warnings.[/dim]")
+            renderables.append(f"[{THEME['faint']}]No pattern-based warnings.[/{THEME['faint']}]")
+
+        print_centered(console, Group(*renderables))
 
 
 if __name__ == "__main__":

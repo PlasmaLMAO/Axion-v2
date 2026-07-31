@@ -10,9 +10,9 @@ from datetime import datetime
 from pathlib import Path
 
 from rich.console import Console
-from rich.table import Table
 
 from core.database import Database
+from core.theme import THEME, boxless_table, print_centered
 
 console = Console()
 
@@ -49,7 +49,7 @@ class IntegrityMonitor:
     def create_baseline(self, directory_str: str, baseline_name: str) -> int:
         directory = Path(directory_str).expanduser().resolve()
         if not directory.is_dir():
-            console.print(f"\n[bold red]Not a directory:[/bold red] {directory}\n")
+            print_centered(console, f"[bold {THEME['error']}]Not a directory:[/bold {THEME['error']}] {directory}")
             return 0
 
         files = self._collect_files(directory)
@@ -67,9 +67,10 @@ class IntegrityMonitor:
                     (baseline_name, str(filepath), file_hash),
                 )
 
-        console.print(
-            f"\n[bold #e6e6e6]Baseline '{baseline_name}' created:[/bold #e6e6e6] "
-            f"{len(files)} file(s) recorded.\n"
+        print_centered(
+            console,
+            f"[bold {THEME['primary']}]Baseline '{baseline_name}' created:[/bold {THEME['primary']}] "
+            f"{len(files)} file(s) recorded.",
         )
         return len(files)
 
@@ -81,7 +82,7 @@ class IntegrityMonitor:
             )
 
         if not rows:
-            console.print(f"\n[bold red]No baseline found named '{baseline_name}'.[/bold red]\n")
+            print_centered(console, f"[bold {THEME['error']}]No baseline found named '{baseline_name}'.[/bold {THEME['error']}]")
             return None
 
         modified = []
@@ -100,23 +101,23 @@ class IntegrityMonitor:
             else:
                 unchanged_count += 1
 
-        table = Table(title=f"Integrity Check: {baseline_name}", title_style="bold #e6e6e6")
-        table.add_column("Status", style="#999999")
-        table.add_column("File", style="#e6e6e6")
+        table = boxless_table(f"Integrity Check: {baseline_name}")
+        table.add_column("Status", style=THEME["muted"])
+        table.add_column("File", style=THEME["primary"])
 
         for filepath in modified:
-            table.add_row("[bold #e6e6e6]MODIFIED[/bold #e6e6e6]", filepath)
+            table.add_row(f"[bold {THEME['warning']}]MODIFIED[/bold {THEME['warning']}]", filepath)
         for filepath in deleted:
-            table.add_row("[bold #e6e6e6]DELETED[/bold #e6e6e6]", filepath)
+            table.add_row(f"[bold {THEME['error']}]DELETED[/bold {THEME['error']}]", filepath)
 
         if modified or deleted:
-            console.print(table)
+            print_centered(console, table)
         else:
-            console.print("\n[dim]No changes detected.[/dim]")
+            print_centered(console, f"[{THEME['faint']}]No changes detected.[/{THEME['faint']}]")
 
-        console.print(
-            f"\n  Unchanged: {unchanged_count}  |  Modified: {len(modified)}  |  "
-            f"Deleted: {len(deleted)}\n"
+        print_centered(
+            console,
+            f"Unchanged: {unchanged_count}  |  Modified: {len(modified)}  |  Deleted: {len(deleted)}",
         )
 
         return modified, deleted

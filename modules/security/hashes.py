@@ -1,16 +1,26 @@
+import sys
+from pathlib import Path as _Path
+
+_PROJECT_ROOT = _Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 import hashlib
 from datetime import datetime
 from pathlib import Path
 
 from rich.console import Console
-from rich.table import Table
+
+from core.theme import THEME, boxless_table, print_centered
 
 console = Console()
 
-CHUNK_SIZE = 65536  # 64 KB per read, balances memory use and speed
+CHUNK_SIZE = 65536
 
 
 class HashAnalyzer:
+    """Computes hashes and metadata for a given file."""
+
     def compute_hashes(self, filepath: Path) -> dict[str, str]:
         md5 = hashlib.md5()
         sha1 = hashlib.sha1()
@@ -41,10 +51,10 @@ class HashAnalyzer:
         filepath = Path(filepath_str).expanduser()
 
         if not filepath.exists():
-            console.print(f"\n[bold red]File not found:[/bold red] {filepath}\n")
+            print_centered(console, f"[bold {THEME['error']}]File not found:[/bold {THEME['error']}] {filepath}")
             return None
         if not filepath.is_file():
-            console.print(f"\n[bold red]Not a regular file:[/bold red] {filepath}\n")
+            print_centered(console, f"[bold {THEME['error']}]Not a regular file:[/bold {THEME['error']}] {filepath}")
             return None
 
         metadata = self.get_metadata(filepath)
@@ -56,14 +66,14 @@ class HashAnalyzer:
         if results is None:
             return
 
-        table = Table(title="File Hash Analysis", title_style="bold #e6e6e6")
-        table.add_column("Field", style="#999999")
-        table.add_column("Value", style="#e6e6e6")
+        table = boxless_table("File Hash Analysis")
+        table.add_column("Field", style=THEME["muted"])
+        table.add_column("Value", style=THEME["primary"])
 
         for key, value in results.items():
             table.add_row(key, value)
 
-        console.print(table)
+        print_centered(console, table)
 
 
 if __name__ == "__main__":

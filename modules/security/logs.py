@@ -1,14 +1,20 @@
+import sys
+from pathlib import Path as _Path
+
+_PROJECT_ROOT = _Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 import re
 from collections import Counter
 from pathlib import Path
 
-from rich.console import Console
-from rich.table import Table
+from rich.console import Console, Group
+
+from core.theme import THEME, boxless_table, print_centered
 
 console = Console()
 
-# Keywords that commonly indicate a security-relevant log line.
-# Case-insensitive match.
 SUSPICIOUS_KEYWORDS = [
     "failed password", "authentication failure", "unauthorized",
     "denied", "invalid user", "permission denied", "attack",
@@ -16,11 +22,9 @@ SUSPICIOUS_KEYWORDS = [
     "segfault", "traceback", "critical", "error",
 ]
 
-# Pattern to extract an IPv4 address from a log line, used for
-# frequency analysis of repeated-source events.
 IPV4_PATTERN = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
-FAILED_LOGIN_THRESHOLD = 3  # flag an IP with 3+ failed-login lines
+FAILED_LOGIN_THRESHOLD = 3
 
 
 class LogAnalyzer:
@@ -36,7 +40,7 @@ class LogAnalyzer:
             for keyword in SUSPICIOUS_KEYWORDS:
                 if keyword in lower_line:
                     matches.append((i, keyword, line.strip()))
-                    break  # one match per line is enough to flag it
+                    break
         return matches
 
     def find_repeated_failures(self, lines: list[str]) -> dict[str, int]:
@@ -56,10 +60,10 @@ class LogAnalyzer:
         filepath = Path(filepath_str).expanduser()
 
         if not filepath.exists():
-            console.print(f"\n[bold red]File not found:[/bold red] {filepath}\n")
+            print_centered(console, f"[bold {THEME['error']}]File not found:[/bold {THEME['error']}] {filepath}")
             return None
         if not filepath.is_file():
-            console.print(f"\n[bold red]Not a regular file:[/bold red] {filepath}\n")
+            print_centered(console, f"[bold {THEME['error']}]Not a regular file:[/bold {THEME['error']}] {filepath}")
             return None
 
         lines = self._read_lines(filepath)
@@ -75,35 +79,36 @@ class LogAnalyzer:
         if results is None:
             return
 
-        console.print(f"\n  Total lines scanned: [#e6e6e6]{results['total_lines']}[/#e6e6e6]\n")
+        renderables = [f"Total lines scanned: [{THEME['primary']}]{results['total_lines']}[/{THEME['primary']}]", ""]
 
-        # Repeated failed-login sources
         if results["repeated_failures"]:
-            table = Table(title="Repeated Failed Logins (possible brute force)", title_style="bold #e6e6e6")
-            table.add_column("Source IP", style="#e6e6e6")
-            table.add_column("Failed Attempts", style="#999999", justify="right")
+            table = boxless_table("Repeated Failed Logins (possible brute force)")
+            table.add_column("Source IP", style=THEME["primary"])
+            table.add_column("Failed Attempts", style=THEME["warning"], justify="right")
             for ip, count in sorted(results["repeated_failures"].items(), key=lambda x: -x[1]):
                 table.add_row(ip, str(count))
-            console.print(table)
-            console.print()
+            renderables.append(table)
         else:
-            console.print("[dim]No repeated failed-login patterns detected.[/dim]\n")
+            renderables.append(f"[{THEME['faint']}]No repeated failed-login patterns detected.[/{THEME['faint']}]")
 
-        # Keyword matches (capped for readability)
+        renderables.append("")
+
         matches = results["keyword_matches"]
         if matches:
-            table = Table(title=f"Suspicious Keyword Matches ({len(matches)} total)", title_style="bold #e6e6e6")
-            table.add_column("Line", style="#999999", justify="right")
-            table.add_column("Keyword", style="#bfbfbf")
-            table.add_column("Content", style="#e6e6e6")
+            table = boxless_table(f"Suspicious Keyword Matches ({len(matches)} total)")
+            table.add_column("Line", style=THEME["muted"], justify="right")
+            table.add_column("Keyword", style=THEME["secondary"])
+            table.add_column("Content", style=THEME["primary"])
             for line_num, keyword, content in matches[:25]:
                 display_content = content if len(content) <= 80 else content[:77] + "..."
                 table.add_row(str(line_num), keyword, display_content)
-            console.print(table)
+            renderables.append(table)
             if len(matches) > 25:
-                console.print(f"\n[dim]... and {len(matches) - 25} more matches not shown.[/dim]")
+                renderables.append(f"[{THEME['faint']}]... and {len(matches) - 25} more matches not shown.[/{THEME['faint']}]")
         else:
-            console.print("[dim]No suspicious keywords detected.[/dim]")
+            renderables.append(f"[{THEME['faint']}]No suspicious keywords detected.[/{THEME['faint']}]")
+
+        print_centered(console, Group(*renderables))
 
 
 if __name__ == "__main__":
