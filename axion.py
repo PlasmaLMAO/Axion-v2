@@ -231,7 +231,18 @@ class AxionApp:
         r("config-webhook", self._cmd_config_webhook, "Set your Discord webhook URL. Usage: config-webhook <url>", "Config")
         r("config-test", self._cmd_config_test, "Send a test alert to your configured webhook.", "Config")
 
+    def run_one_shot(self, argv: list[str]) -> None:
+            self.logger.info(f"AXION V2 one-shot command: {' '.join(argv)}")
+            with Database():
+                pass
+
+            line = " ".join(argv)
+            self.cli.dispatch(line)
+
+            self.logger.info("AXION V2 one-shot session ended.")
+    
     def run(self) -> None:
+        """Start the interactive REPL."""
         self.logger.info("AXION V2 session started.")
         with Database():
             pass
@@ -247,6 +258,11 @@ class AxionApp:
             console.print(f"\n[{THEME['secondary']}]Exiting AXION V2. Goodbye.[/{THEME['secondary']}]\n")
             self.logger.info("AXION V2 session ended.")
 
-
 if __name__ == "__main__":
-    AxionApp().run()
+    app = AxionApp()
+    if len(sys.argv) > 1:
+        # Arguments given: run one command and exit (e.g. `python axion.py hash README.md`)
+        app.run_one_shot(sys.argv[1:])
+    else:
+        # No arguments: launch the interactive REPL
+        app.run()
