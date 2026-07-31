@@ -1,6 +1,14 @@
+import sys
+from pathlib import Path as _Path
+
+_PROJECT_ROOT = _Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 import dns.resolver
-from rich.console import Console
-from rich.table import Table
+from rich.console import Console, Group
+
+from core.theme import THEME, boxless_table, print_centered
 
 console = Console()
 
@@ -35,25 +43,26 @@ class DNSAnalyzer:
         return results
 
     def display(self, domain: str) -> None:
-        console.print(f"\n  Analyzing: [#e6e6e6]{domain}[/#e6e6e6]\n")
-
         servers = self.get_system_dns_servers()
-        if servers:
-            console.print(f"  System DNS servers: [#999999]{', '.join(servers)}[/#999999]\n")
-
         results = self.analyze(domain)
 
-        table = Table(title=f"DNS Records for {domain}", title_style="bold #e6e6e6")
-        table.add_column("Type", style="#999999")
-        table.add_column("Value(s)", style="#e6e6e6")
+        table = boxless_table(f"DNS Records for {domain}")
+        table.add_column("Type", style=THEME["muted"])
+        table.add_column("Value(s)", style=THEME["primary"])
 
         for record_type, values in results.items():
             if values:
                 table.add_row(record_type, "\n".join(values))
             else:
-                table.add_row(record_type, "[dim]none[/dim]")
+                table.add_row(record_type, f"[{THEME['faint']}]none[/{THEME['faint']}]")
 
-        console.print(table)
+        renderables = [f"Analyzing: [{THEME['primary']}]{domain}[/{THEME['primary']}]", ""]
+        if servers:
+            renderables.append(f"System DNS servers: [{THEME['muted']}]{', '.join(servers)}[/{THEME['muted']}]")
+            renderables.append("")
+        renderables.append(table)
+
+        print_centered(console, Group(*renderables))
 
 
 if __name__ == "__main__":

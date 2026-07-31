@@ -1,11 +1,20 @@
+import sys
+from pathlib import Path as _Path
+
+_PROJECT_ROOT = _Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 import psutil
 from rich.console import Console
-from rich.table import Table
+
+from core.theme import THEME, boxless_table, print_centered
 
 console = Console()
 
 
 class ConnectionMonitor:
+
     def get_connections(self) -> list[dict[str, str]]:
         connections = []
         for conn in psutil.net_connections(kind="inet"):
@@ -36,19 +45,20 @@ class ConnectionMonitor:
             connections = [c for c in connections if c["status"] == filter_status]
 
         if not connections:
-            console.print("[dim]No matching connections found.[/dim]")
-            console.print(
-                "[dim]Note: viewing all processes' connections may require elevated permissions.[/dim]"
+            print_centered(console, f"[{THEME['faint']}]No matching connections found.[/{THEME['faint']}]")
+            print_centered(
+                console,
+                f"[{THEME['faint']}]Note: viewing all processes' connections may require elevated permissions.[/{THEME['faint']}]",
             )
             return
 
-        table = Table(title="Active Network Connections", title_style="bold #e6e6e6")
-        table.add_column("Proto", style="#999999")
-        table.add_column("Local Address", style="#e6e6e6")
-        table.add_column("Remote Address", style="#e6e6e6")
-        table.add_column("Status", style="#bfbfbf")
-        table.add_column("PID", style="#999999", justify="right")
-        table.add_column("Process", style="#bfbfbf")
+        table = boxless_table("Active Network Connections")
+        table.add_column("Proto", style=THEME["muted"])
+        table.add_column("Local Address", style=THEME["primary"])
+        table.add_column("Remote Address", style=THEME["primary"])
+        table.add_column("Status", style=THEME["secondary"])
+        table.add_column("PID", style=THEME["muted"], justify="right")
+        table.add_column("Process", style=THEME["secondary"])
 
         for conn in connections:
             table.add_row(
@@ -60,7 +70,7 @@ class ConnectionMonitor:
                 conn["process"],
             )
 
-        console.print(table)
+        print_centered(console, table)
 
 
 if __name__ == "__main__":

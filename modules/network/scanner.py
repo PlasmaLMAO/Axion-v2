@@ -1,8 +1,17 @@
+import sys
+from pathlib import Path as _Path
+
+_PROJECT_ROOT = _Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 import socket
 
 import psutil
-from rich.console import Console
-from rich.table import Table
+from rich.console import Console, Group
+from rich.align import Align
+
+from core.theme import THEME, boxless_table, print_centered
 
 console = Console()
 
@@ -13,7 +22,6 @@ class NetworkScanner:
         return socket.gethostname()
 
     def get_local_ip(self) -> str:
-
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 s.connect(("8.8.8.8", 80))
@@ -31,7 +39,7 @@ class NetworkScanner:
                 elif addr.family == socket.AF_INET6:
                     family = "IPv6"
                 else:
-                    continue  # skip MAC/link-layer addresses
+                    continue
                 entries.append({
                     "family": family,
                     "address": addr.address,
@@ -42,20 +50,24 @@ class NetworkScanner:
         return interfaces
 
     def display(self) -> None:
-        console.print(f"  Hostname:   [#e6e6e6]{self.get_hostname()}[/#e6e6e6]")
-        console.print(f"  Primary IP: [#e6e6e6]{self.get_local_ip()}[/#e6e6e6]\n")
-
-        table = Table(title="Network Interfaces", title_style="bold #e6e6e6")
-        table.add_column("Interface", style="#999999")
-        table.add_column("Family", style="#bfbfbf")
-        table.add_column("Address", style="#e6e6e6")
-        table.add_column("Netmask", style="#999999")
+        table = boxless_table("Network Interfaces")
+        table.add_column("Interface", style=THEME["muted"])
+        table.add_column("Family", style=THEME["secondary"])
+        table.add_column("Address", style=THEME["primary"])
+        table.add_column("Netmask", style=THEME["muted"])
 
         for iface_name, entries in self.get_interfaces().items():
             for entry in entries:
                 table.add_row(iface_name, entry["family"], entry["address"], entry["netmask"])
 
-        console.print(table)
+        renderables = [
+            f"Hostname:   [{THEME['primary']}]{self.get_hostname()}[/{THEME['primary']}]",
+            f"Primary IP: [{THEME['primary']}]{self.get_local_ip()}[/{THEME['primary']}]",
+            "",
+            table,
+        ]
+
+        print_centered(console, Group(*renderables))
 
 
 if __name__ == "__main__":

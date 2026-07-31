@@ -65,3 +65,21 @@ def gradient_lines(
             result.append("\n")
 
     return result
+
+def boxless_table(title: str = "", **kwargs) -> "Table":
+    from rich.table import Table
+    from rich import box as _box
+
+    return Table(
+        title=title,
+        box=_box.SIMPLE_HEAD,  # header underline only, no full grid
+        title_style=f"bold {THEME['primary']}",
+        header_style=THEME["secondary"],
+        show_edge=False,
+        **kwargs,
+    )
+
+
+def print_centered(console, renderable) -> None:
+    from rich.align import Align
+    console.print(Align.center(renderable))

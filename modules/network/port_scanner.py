@@ -1,8 +1,16 @@
+import sys
+from pathlib import Path as _Path
+
+_PROJECT_ROOT = _Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 import ipaddress
 import socket
 
 from rich.console import Console
-from rich.table import Table
+
+from core.theme import THEME, boxless_table, print_centered
 
 console = Console()
 
@@ -16,9 +24,7 @@ COMMON_PORTS = {
 class ScopeError(Exception):
     """Raised when a target address is outside the permitted scan scope."""
 
-
 class PortScanner:
-    """TCP connect-scan limited to localhost and private network ranges."""
 
     def validate_target(self, target: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
         try:
@@ -50,37 +56,37 @@ class PortScanner:
         return results
 
     def display(self, target: str) -> None:
-        try:
-            addr = self.validate_target(target)
-        except (ScopeError, ValueError) as e:
-            console.print(f"\n[bold red]Blocked:[/bold red] {e}\n")
-            return
+            from rich.console import Group
 
-        console.print(
-            f"\n[bold #e6e6e6]Target:[/bold #e6e6e6] {target} ({addr}) — within permitted scope."
-        )
-        console.print(
-            "[dim]Only scan networks and hosts you own or have explicit authorization to test.[/dim]"
-        )
-        confirm = console.input("\nProceed with scan? [y/N]: ").strip().lower()
-        if confirm != "y":
-            console.print("[dim]Scan cancelled.[/dim]")
-            return
+            try:
+                addr = self.validate_target(target)
+            except (ScopeError, ValueError) as e:
+                print_centered(console, f"[bold {THEME['error']}]Blocked:[/bold {THEME['error']}] {e}")
+                return
 
-        console.print(f"\nScanning {len(COMMON_PORTS)} common ports on {addr}...\n")
-        results = self.scan(target)
+            print_centered(console, Group(
+                f"[bold {THEME['primary']}]Target:[/bold {THEME['primary']}] {target} ({addr}) — within permitted scope.",
+                f"[{THEME['faint']}]Only scan networks and hosts you own or have explicit authorization to test.[/{THEME['faint']}]",
+            ))
 
-        table = Table(title=f"Port Scan Results: {addr}", title_style="bold #e6e6e6")
-        table.add_column("Port", style="#999999", justify="right")
-        table.add_column("Service", style="#bfbfbf")
-        table.add_column("State", style="#e6e6e6")
+            confirm = console.input("\nProceed with scan? [y/N]: ").strip().lower()
+            if confirm != "y":
+                print_centered(console, f"[{THEME['faint']}]Scan cancelled.[/{THEME['faint']}]")
+                return
 
-        for port, is_open in results.items():
-            state = "[bold #e6e6e6]OPEN[/bold #e6e6e6]" if is_open else "[dim]closed[/dim]"
-            table.add_row(str(port), COMMON_PORTS.get(port, "-"), state)
+            console.print(f"\nScanning {len(COMMON_PORTS)} common ports on {addr}...\n")
+            results = self.scan(target)
 
-        console.print(table)
+            table = boxless_table(f"Port Scan Results: {addr}")
+            table.add_column("Port", style=THEME["muted"], justify="right")
+            table.add_column("Service", style=THEME["secondary"])
+            table.add_column("State", style=THEME["primary"])
 
+            for port, is_open in results.items():
+                state = f"[bold {THEME['success']}]OPEN[/bold {THEME['success']}]" if is_open else f"[{THEME['faint']}]closed[/{THEME['faint']}]"
+                table.add_row(str(port), COMMON_PORTS.get(port, "-"), state)
+
+            print_centered(console, table)
 
 if __name__ == "__main__":
     target = console.input(

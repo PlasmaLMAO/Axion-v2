@@ -6,8 +6,8 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from rich.console import Console
-from rich.panel import Panel
 from rich.text import Text
+from rich.align import Align
 
 from core.theme import THEME, gradient_lines
 
@@ -22,7 +22,6 @@ class Banner:
     TAGLINE = "Cybersecurity Suite"
     VERSION = "2.0.0"
 
-
     def __init__(self, theme: dict = THEME) -> None:
         self.theme = theme
 
@@ -34,25 +33,19 @@ class Banner:
 
     def show_banner(self) -> None:
         logo_gradient = gradient_lines(self._load_logo())
-        tagline_text = Text(self.TAGLINE, style=self.theme["secondary"], justify="center")
-        version_text = Text(f"v{self.VERSION}", style=self.theme["faint"], justify="center")
-
         logo_gradient.justify = "center"
+        console.print(Align.center(logo_gradient))
 
-        console.print(
-            Panel.fit(
-                Text.assemble(logo_gradient, "\n\n", tagline_text, "\n", version_text),
-                border_style=self.theme["border"],
-                padding=(1, 4),
-            )
-        )
+        tagline_text = Text(self.TAGLINE, style=self.theme["secondary"])
+        version_text = Text(f"v{self.VERSION}", style=self.theme["faint"])
+        console.print(Align.center(tagline_text))
+        console.print(Align.center(version_text))
         console.print()
 
-
     def render(self) -> None:
-            """Convenience method: clear screen and show the banner."""
-            console.clear()
-            self.show_banner()
+        console.clear()
+        self.show_banner()
+
 
 if __name__ == "__main__":
     Banner().render()
